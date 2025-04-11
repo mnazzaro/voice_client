@@ -1,0 +1,10 @@
+[project]
+name = "voice-client"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=2.2.4",
+    "pyaudio>=0.2.14",
+]
