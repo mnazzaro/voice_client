@@ -4,11 +4,11 @@ import wave
 # Set parameters
 FORMAT = pyaudio.paInt16
 CHANNELS = 2
-RATE = 16000
+RATE = 44100
 CHUNK = 1024
 RECORD_SECONDS = 5
 OUTPUT_FILENAME = "output.wav"
-DEVICE_INDEX = 2  # Replace with your device index
+DEVICE_INDEX = 0
 
 # Initialize PyAudio
 audio = pyaudio.PyAudio()
