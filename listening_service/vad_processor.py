@@ -29,8 +29,10 @@ class VadProcessorService:
                 return
             self.vad = webrtcvad.Vad(settings.VAD_AGGRESSIVENESS)
             self.input_queue = audio_input_service.get_queue()
-            # Initialize deque with maxlen for pre-buffer
-            self.recording_frames = collections.deque(maxlen=settings.PRE_BUFFER_SIZE)
+            # Deque for pre-buffer ONLY
+            self.pre_buffer_frames = collections.deque(maxlen=settings.PRE_BUFFER_SIZE)
+            # List to store the actual recording once triggered
+            self.current_recording = []
             self.triggered = False
             self.start_time = None
             self.silent_chunks = 0
@@ -47,9 +49,8 @@ class VadProcessorService:
             try:
                 frame = self.input_queue.get(timeout=0.1) # Wait briefly for a frame
             except queue.Empty:
-                # If we are triggered and the queue is empty for too long, maybe save?
-                # This is a fallback, primary stop is silence detection below
-                if self.triggered and self.silent_chunks > self.max_silent_chunks * 2: # Heuristic
+                # Fallback if input stream stops during speech
+                if self.triggered and self.silent_chunks > self.max_silent_chunks * 2:
                      print("Input stream seems to have ended during speech. Saving...")
                      self._save_current_recording()
                      self._reset_state()
@@ -59,55 +60,56 @@ class VadProcessorService:
             try:
                  is_speech = self.vad.is_speech(frame, settings.SAMPLE_RATE)
             except Exception as e:
-                 # Handle potential errors from vad.is_speech if frame format is wrong
                  print(f"Error during VAD processing: {e}", file=sys.stderr)
-                 # Depending on the error, you might want to skip this frame or stop
                  continue
 
             if not self.triggered:
-                self.recording_frames.append(frame) # Keep filling pre-buffer deque
+                # Always add to pre-buffer when not triggered
+                self.pre_buffer_frames.append(frame)
                 if is_speech:
+                    # --- Triggered --- 
                     self.triggered = True
-                    # --- FIX: Remove maxlen when triggered --- 
-                    self.recording_frames.maxlen = None 
-                    self.start_time = datetime.datetime.now() # Mark start time
+                    # Copy pre-buffer to the recording list
+                    self.current_recording = list(self.pre_buffer_frames)
+                    # Note: frame is already in pre_buffer_frames, so it gets copied.
+                    self.start_time = datetime.datetime.now() - datetime.timedelta(milliseconds=len(self.current_recording) * settings.CHUNK_DURATION_MS)
+                    self.start_time = self.start_time or datetime.datetime.now() # Fallback if calculation is off
                     self.silent_chunks = 0
-                    print(f"Speech started at {self.start_time.strftime('%Y-%m-%d_%H-%M-%S')}")
-                    # Pre-buffer frames are already in the deque
+                    print(f"Speech started around {self.start_time.strftime('%Y-%m-%d_%H-%M-%S')}")
             else:
-                # Already triggered, append frame to the now unlimited deque
-                self.recording_frames.append(frame)
+                # --- Already Triggered --- 
+                self.current_recording.append(frame)
                 if is_speech:
                     self.silent_chunks = 0 # Reset silence counter on speech
                 else:
                     self.silent_chunks += 1
                     # Check if silence threshold is met
                     if self.silent_chunks > self.max_silent_chunks:
-                        end_time = datetime.datetime.now()
-                        print(f"Speech ended at {end_time.strftime('%Y-%m-%d_%H-%M-%S')}. Saving...")
+                        end_time = datetime.datetime.now() - datetime.timedelta(milliseconds=self.silent_chunks * settings.CHUNK_DURATION_MS)
+                        print(f"Speech ended around {end_time.strftime('%Y-%m-%d_%H-%M-%S')}. Saving...")
                         self._save_current_recording(end_time)
                         self._reset_state()
         print("VAD processing thread stopped.")
 
     def _save_current_recording(self, end_time=None):
-        """Internal helper to save the current buffer."""
-        if not self.start_time or not self.recording_frames:
-            return # Nothing to save
+        """Internal helper to save the current recording list."""
+        if not self.start_time or not self.current_recording:
+            print("Save called but no data in current_recording.")
+            return
 
-        # Use current time if end_time wasn't explicitly passed (e.g., on stop)
         final_end_time = end_time or datetime.datetime.now()
-        # Pass a list copy to the storage service
-        audio_storage_service.save_recording(list(self.recording_frames), self.start_time, final_end_time)
+        # Use the current_recording list
+        audio_storage_service.save_recording(self.current_recording, self.start_time, final_end_time)
 
     def _reset_state(self):
         """Resets the recording state after saving or stopping."""
         self.triggered = False
         self.start_time = None
         self.silent_chunks = 0
-        # --- FIX: Clear deque and restore maxlen for next pre-buffer --- 
-        self.recording_frames.clear()
-        self.recording_frames.maxlen = settings.PRE_BUFFER_SIZE
-        print(f"Resetting VAD state. Listening... (Max pre-buffer: {settings.PRE_BUFFER_DURATION_MS}ms)")
+        # Clear the recording list
+        self.current_recording = []
+        # Pre-buffer deque continues to function independently
+        print(f"Resetting VAD state. Listening... (Pre-buffer: {settings.PRE_BUFFER_DURATION_MS}ms)")
 
     def start(self):
         if self._processing_thread is not None and self._processing_thread.is_alive():
@@ -116,6 +118,9 @@ class VadProcessorService:
 
         print("Starting VAD processing service...")
         self._stop_event.clear()
+        # Ensure state is reset before starting thread
+        self._reset_state() 
+        self.pre_buffer_frames.clear() # Clear pre-buffer too on full start
         self._processing_thread = threading.Thread(target=self._process_audio, daemon=True)
         self._processing_thread.start()
 
@@ -132,6 +137,7 @@ class VadProcessorService:
             print("Saving final segment...")
             self._save_current_recording()
 
+        # Reset state after stopping and potentially saving
         self._reset_state()
         self._processing_thread = None
 
