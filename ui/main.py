@@ -38,7 +38,7 @@ RECORDINGS_DIR = Path(listener_settings.OUTPUT_DIR)
 print(f"RECORDINGS_DIR: {listener_settings.OUTPUT_DIR}")
 if not RECORDINGS_DIR.is_absolute():
     # Assume it's relative to the listening_service directory if not absolute
-    RECORDINGS_DIR = (SERVICE_DIR / listener_settings.OUTPUT_DIR).resolve()
+    RECORDINGS_DIR = (Path(__file__).parent.parent / listener_settings.OUTPUT_DIR).resolve()
 
 print(f"UI Service using recordings directory: {RECORDINGS_DIR}")
 
