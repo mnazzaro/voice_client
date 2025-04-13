@@ -18,7 +18,7 @@ sys.path.append(str(SERVICE_DIR))
 try:
     # Attempt to import the settings from the listening service
     # Ensure __init__.py exists in listening_service
-    from config import settings as listener_settings
+    from listening_service.config import settings as listener_settings
 except ImportError as e:
     print(f"Error importing listener settings: {e}", file=sys.stderr)
     print("Please ensure listening_service is in the Python path and has an __init__.py", file=sys.stderr)

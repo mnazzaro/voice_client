@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
-packages = ["listening_service", "ui"]
+# packages = ["listening_service", "ui"]
 dependencies = [
     "numpy>=2.2.4",
     "pyaudio>=0.2.14",
@@ -17,3 +17,6 @@ dependencies = [
     "jinja2>=3.1.4",
     "python-multipart>=0.0.9",
 ]
+
+[tool.setuptools]
+packages = ["listening_service", "ui"]
