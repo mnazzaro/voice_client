@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Recordings</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .controls { margin-bottom: 20px; display: flex; gap: 15px; align-items: center; }
+        .controls label { margin-right: 5px; }
+        .controls input[type="date"], .controls button, .controls a {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .controls button, .controls a { background-color: #eee; cursor: pointer; text-decoration: none; color: black; }
+        .controls button:hover, .controls a:hover { background-color: #ddd; }
+        .no-recordings { color: #888; margin-top: 15px; }
+        .download-link { display: inline-block; margin-left: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Voice Recordings</h1>
+
+    <form method="get" class="controls">
+        <label for="start_date">Start Date:</label>
+        <input type="date" id="start_date" name="start_date" value="{{ start_date }}">
+        <label for="end_date">End Date:</label>
+        <input type="date" id="end_date" name="end_date" value="{{ end_date }}">
+        <button type="submit">Filter</button>
+        {% if recordings %}
+            <a href="/download_all?start_date={{ start_date }}&end_date={{ end_date }}" 
+               download="recordings_{{ start_date }}_to_{{ end_date }}.zip">Download Filtered as ZIP</a>
+        {% endif %}
+    </form>
+
+    {% if recordings %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Filename</th>
+                    <th>Start Time</th>
+                    <th>End Time</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for recording in recordings %}
+                <tr>
+                    <td>{{ recording.filename }}</td>
+                    <td>{{ recording.start_str }}</td>
+                    <td>{{ recording.end_str }}</td>
+                    <td>
+                        <a href="/download/{{ recording.filename }}" download class="download-link">Download WAV</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p class="no-recordings">No recordings found{% if start_date or end_date %} for the selected date range{% endif %}.</p>
+    {% endif %}
+
+</body>
+</html> 
