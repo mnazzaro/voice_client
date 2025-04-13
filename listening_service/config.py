@@ -13,8 +13,8 @@ class Settings(BaseSettings):
     # DTYPE is derived, not directly loaded
 
     # --- VAD Configuration ---
-    VAD_AGGRESSIVENESS: int = Field(1, ge=0, le=3, description="VAD aggressiveness mode (0=least, 3=most aggressive)")
-    SILENCE_THRESHOLD_MS: int = Field(500, description="How long silence must last to end a segment (ms)")
+    VAD_AGGRESSIVENESS: int = Field(0, ge=0, le=3, description="VAD aggressiveness mode (0=least, 3=most aggressive)")
+    SILENCE_THRESHOLD_MS: int = Field(2000, description="How long silence must last to end a segment (ms)")
     PRE_BUFFER_DURATION_MS: int = Field(300, description="How much audio to keep before speech starts (ms)")
 
     # --- Output Configuration ---

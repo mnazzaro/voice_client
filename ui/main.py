@@ -48,21 +48,23 @@ class RecordingInfo(BaseModel):
     end_dt: datetime.datetime
     start_str: str
     end_str: str
+    duration_sec: float
     filepath: Path
 
 def parse_filename(filename: str, filepath: Path) -> Optional[RecordingInfo]:
-    """Parses start and end datetime from filename like YYYYMMDD_HHMMSS_to_HHMMSS.wav"""
+    """Parses start/end datetime and calculates duration from filename."""
     parts = filename.replace(".wav", "").split('_to_')
     if len(parts) == 2:
         start_part, end_part = parts
         try:
             start_dt = datetime.datetime.strptime(start_part, '%Y%m%d_%H%M%S')
-            # End part only has time, use date from start_dt
             end_dt = datetime.datetime.strptime(f"{start_dt.strftime('%Y%m%d')}_{end_part}", '%Y%m%d_%H%M%S')
-
-            # Handle potential day rollover if end time is past midnight
             if end_dt < start_dt:
                  end_dt += datetime.timedelta(days=1)
+
+            # Calculate duration
+            duration = end_dt - start_dt
+            duration_sec = round(duration.total_seconds(), 1) # Round to 1 decimal place
 
             return RecordingInfo(
                 filename=filename,
@@ -70,6 +72,7 @@ def parse_filename(filename: str, filepath: Path) -> Optional[RecordingInfo]:
                 end_dt=end_dt,
                 start_str=start_dt.strftime('%Y-%m-%d %H:%M:%S'),
                 end_str=end_dt.strftime('%Y-%m-%d %H:%M:%S'),
+                duration_sec=duration_sec,
                 filepath=filepath
             )
         except ValueError:

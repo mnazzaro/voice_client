@@ -44,6 +44,7 @@
                     <th>Filename</th>
                     <th>Start Time</th>
                     <th>End Time</th>
+                    <th>Duration (s)</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -53,6 +54,7 @@
                     <td>{{ recording.filename }}</td>
                     <td>{{ recording.start_str }}</td>
                     <td>{{ recording.end_str }}</td>
+                    <td>{{ recording.duration_sec }}</td>
                     <td>
                         <a href="/download/{{ recording.filename }}" download class="download-link">Download WAV</a>
                     </td>
