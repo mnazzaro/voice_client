@@ -24,7 +24,7 @@ except ImportError as e:
     print("Please ensure listening_service is in the Python path and has an __init__.py", file=sys.stderr)
     # Provide default/fallback settings if import fails
     class FallbackSettings:
-        OUTPUT_DIR = "../listening_service/recordings" # Relative guess
+        OUTPUT_DIR = "../recordings" # Relative guess
     listener_settings = FallbackSettings()
 
 app = FastAPI()
@@ -35,6 +35,7 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 # Resolve the absolute path for the recordings directory
 RECORDINGS_DIR = Path(listener_settings.OUTPUT_DIR)
+print(f"RECORDINGS_DIR: {listener_settings.OUTPUT_DIR}")
 if not RECORDINGS_DIR.is_absolute():
     # Assume it's relative to the listening_service directory if not absolute
     RECORDINGS_DIR = (SERVICE_DIR / listener_settings.OUTPUT_DIR).resolve()

@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     PRE_BUFFER_DURATION_MS: int = Field(300, description="How much audio to keep before speech starts (ms)")
 
     # --- Output Configuration ---
-    OUTPUT_DIR: str = Field("~/voice_client/recordings", description="Directory to save recordings")
+    OUTPUT_DIR: str = Field("recordings", description="Directory to save recordings")
 
     # --- Computed Fields ---
     @computed_field
