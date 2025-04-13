@@ -87,7 +87,7 @@ class VadProcessorService:
                     reduced_chunk_float = nr.reduce_noise(y=audio_chunk_float,
                                                         sr=settings.SAMPLE_RATE,
                                                         y_noise=self.noise_clip,
-                                                        prop_decrease=1.0, # Aggressiveness of reduction
+                                                        prop_decrease=0.5, # Aggressiveness of reduction
                                                         n_fft=512, # Smaller FFT for lower latency
                                                         hop_length=128,
                                                         stationary=True # Assume hum is stationary
