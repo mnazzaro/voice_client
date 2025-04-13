@@ -13,12 +13,12 @@ class Settings(BaseSettings):
     # DTYPE is derived, not directly loaded
 
     # --- VAD Configuration ---
-    VAD_AGGRESSIVENESS: int = Field(3, ge=0, le=3, description="VAD aggressiveness mode (0=least, 3=most aggressive)")
+    VAD_AGGRESSIVENESS: int = Field(1, ge=0, le=3, description="VAD aggressiveness mode (0=least, 3=most aggressive)")
     SILENCE_THRESHOLD_MS: int = Field(500, description="How long silence must last to end a segment (ms)")
     PRE_BUFFER_DURATION_MS: int = Field(300, description="How much audio to keep before speech starts (ms)")
 
     # --- Output Configuration ---
-    OUTPUT_DIR: str = Field("recordings", description="Directory to save recordings")
+    OUTPUT_DIR: str = Field("~/voice_client/recordings", description="Directory to save recordings")
 
     # --- Computed Fields ---
     @computed_field
