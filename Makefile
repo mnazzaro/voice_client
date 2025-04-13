@@ -6,6 +6,7 @@ install:
 
 # Run the listening service
 run-listener:
+	amixer -c 1 set Capture 20%
 	uv run python listening_service/main.py
 
 # Stop the listening service
