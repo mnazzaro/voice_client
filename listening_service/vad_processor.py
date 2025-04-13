@@ -29,7 +29,7 @@ class VadProcessorService:
                 return
             self.vad = webrtcvad.Vad(settings.VAD_AGGRESSIVENESS)
             self.input_queue = audio_input_service.get_queue()
-            # Use computed properties from settings
+            # Initialize deque with maxlen for pre-buffer
             self.recording_frames = collections.deque(maxlen=settings.PRE_BUFFER_SIZE)
             self.triggered = False
             self.start_time = None
@@ -48,6 +48,7 @@ class VadProcessorService:
                 frame = self.input_queue.get(timeout=0.1) # Wait briefly for a frame
             except queue.Empty:
                 # If we are triggered and the queue is empty for too long, maybe save?
+                # This is a fallback, primary stop is silence detection below
                 if self.triggered and self.silent_chunks > self.max_silent_chunks * 2: # Heuristic
                      print("Input stream seems to have ended during speech. Saving...")
                      self._save_current_recording()
@@ -64,14 +65,17 @@ class VadProcessorService:
                  continue
 
             if not self.triggered:
-                self.recording_frames.append(frame) # Keep filling pre-buffer
+                self.recording_frames.append(frame) # Keep filling pre-buffer deque
                 if is_speech:
                     self.triggered = True
+                    # --- FIX: Remove maxlen when triggered --- 
+                    self.recording_frames.maxlen = None 
                     self.start_time = datetime.datetime.now() # Mark start time
                     self.silent_chunks = 0
                     print(f"Speech started at {self.start_time.strftime('%Y-%m-%d_%H-%M-%S')}")
+                    # Pre-buffer frames are already in the deque
             else:
-                # Already triggered, append frame
+                # Already triggered, append frame to the now unlimited deque
                 self.recording_frames.append(frame)
                 if is_speech:
                     self.silent_chunks = 0 # Reset silence counter on speech
@@ -100,9 +104,10 @@ class VadProcessorService:
         self.triggered = False
         self.start_time = None
         self.silent_chunks = 0
-        # Re-initialize deque to clear it properly respecting maxlen for pre-buffer
-        self.recording_frames = collections.deque(maxlen=settings.PRE_BUFFER_SIZE)
-        print("Resetting VAD state. Listening...")
+        # --- FIX: Clear deque and restore maxlen for next pre-buffer --- 
+        self.recording_frames.clear()
+        self.recording_frames.maxlen = settings.PRE_BUFFER_SIZE
+        print(f"Resetting VAD state. Listening... (Max pre-buffer: {settings.PRE_BUFFER_DURATION_MS}ms)")
 
     def start(self):
         if self._processing_thread is not None and self._processing_thread.is_alive():
@@ -122,7 +127,7 @@ class VadProcessorService:
             if self._processing_thread.is_alive():
                 print("Warning: VAD processing thread did not stop gracefully.", file=sys.stderr)
 
-        # If currently triggered, save the last segment
+        # If currently triggered when stopped, save the last segment
         if self.triggered:
             print("Saving final segment...")
             self._save_current_recording()
