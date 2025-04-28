@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     # --- Audio Configuration ---
     SAMPLE_RATE: int = Field(16000, description="Audio sample rate in Hz.")
     CHUNK_DURATION_MS: int = Field(30, description="Duration of audio chunks processed internally (ms).")
-    CHANNELS: int = Field(1, description="Number of audio channels")
+    CHANNELS: int = Field(2, description="Number of audio channels")
     # DTYPE is derived, not directly loaded
 
     # --- Recording Configuration ---

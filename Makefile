@@ -1,4 +1,4 @@
-.PHONY: install run stop run-listener run-ui
+.PHONY: install run stop run-listener run-ui clean-recordings
 
 # Use uv to install dependencies defined in pyproject.toml
 install:
@@ -30,4 +30,10 @@ run:
 
 stop:
 	make stop-listener
-	make stop-ui 
+	make stop-ui
+
+# Clean recordings
+clean-recordings:
+	@echo "Deleting all recordings (*.wav.gz) from the recordings directory..."
+	@rm -f recordings/*.wav.gz
+	@echo "Recordings deleted." 
