@@ -1,21 +1,20 @@
 import numpy as np
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field, computed_field
+import math # Added for ceiling calculation
 
 class Settings(BaseSettings):
     # Load settings from a .env file
     model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8')
 
     # --- Audio Configuration ---
-    SAMPLE_RATE: int = Field(16000, description="Rate in Hz (must be 8000, 16000, 32000, or 48000 for VAD)")
-    CHUNK_DURATION_MS: int = Field(30, description="Duration of audio chunks for VAD in ms (must be 10, 20, or 30)")
+    SAMPLE_RATE: int = Field(16000, description="Audio sample rate in Hz.")
+    CHUNK_DURATION_MS: int = Field(30, description="Duration of audio chunks processed internally (ms).")
     CHANNELS: int = Field(1, description="Number of audio channels")
     # DTYPE is derived, not directly loaded
 
-    # --- VAD Configuration ---
-    VAD_AGGRESSIVENESS: int = Field(0, ge=0, le=3, description="VAD aggressiveness mode (0=least, 3=most aggressive)")
-    SILENCE_THRESHOLD_MS: int = Field(2000, description="How long silence must last to end a segment (ms)")
-    PRE_BUFFER_DURATION_MS: int = Field(300, description="How much audio to keep before speech starts (ms)")
+    # --- Recording Configuration ---
+    CHUNK_DURATION_MINUTES: int = Field(5, description="Duration of each saved audio chunk in minutes.")
 
     # --- Output Configuration ---
     OUTPUT_DIR: str = Field("recordings", description="Directory to save recordings")
@@ -30,33 +29,28 @@ class Settings(BaseSettings):
     @computed_field
     @property
     def DTYPE(self) -> np.dtype:
-        "Numpy data type for recording (always int16 for VAD)."
+        "Numpy data type for recording."
         return np.int16
 
     @computed_field
     @property
-    def MAX_SILENT_CHUNKS(self) -> int:
-        "Number of silent chunks before triggering end of speech."
-        return self.SILENCE_THRESHOLD_MS // self.CHUNK_DURATION_MS
+    def TARGET_CHUNKS_PER_FILE(self) -> int:
+        "Target number of internal chunks per output file."
+        total_ms_per_file = self.CHUNK_DURATION_MINUTES * 60 * 1000
+        # Use ceiling to ensure we capture the full duration
+        return math.ceil(total_ms_per_file / self.CHUNK_DURATION_MS)
 
-    @computed_field
-    @property
-    def PRE_BUFFER_SIZE(self) -> int:
-        "Size of the pre-buffer in chunks."
-        return int(self.PRE_BUFFER_DURATION_MS / self.CHUNK_DURATION_MS)
+
 
 # Create a single settings instance for the application to import
 settings = Settings()
 
 # --- Validation (Optional but Recommended) ---
 def validate_settings():
-    if settings.SAMPLE_RATE not in [8000, 16000, 32000, 48000]:
-        raise ValueError("SAMPLE_RATE must be one of 8000, 16000, 32000, 48000")
-    if settings.CHUNK_DURATION_MS not in [10, 20, 30]:
-        raise ValueError("CHUNK_DURATION_MS must be one of 10, 20, 30")
-    if settings.CHANNELS != 1:
-        # Currently, VAD processing assumes mono
-        print("Warning: CHANNELS is not 1. VAD processing assumes mono input.")
+    if settings.CHUNK_DURATION_MS <= 0:
+        raise ValueError("CHUNK_DURATION_MS must be positive.")
+    if settings.CHUNK_DURATION_MINUTES <= 0:
+        raise ValueError("CHUNK_DURATION_MINUTES must be positive.")
 
 # Run validation when the module is imported
 validate_settings() 

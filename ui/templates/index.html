@@ -9,9 +9,11 @@
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
         th { background-color: #f2f2f2; }
-        .controls { margin-bottom: 20px; display: flex; gap: 15px; align-items: center; }
+        .control-section { margin-bottom: 20px; padding: 15px; border: 1px solid #eee; border-radius: 5px; }
+        .control-section h2 { margin-top: 0; font-size: 1.1em; }
+        .controls { display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
         .controls label { margin-right: 5px; }
-        .controls input[type="date"], .controls button, .controls a {
+        .controls input[type="date"], .controls input[type="datetime-local"], .controls button, .controls a {
             padding: 8px 12px;
             border: 1px solid #ccc;
             border-radius: 4px;
@@ -25,19 +27,35 @@
 <body>
     <h1>Voice Recordings</h1>
 
-    <form method="get" class="controls">
-        <label for="start_date">Start Date:</label>
-        <input type="date" id="start_date" name="start_date" value="{{ start_date }}">
-        <label for="end_date">End Date:</label>
-        <input type="date" id="end_date" name="end_date" value="{{ end_date }}">
-        <button type="submit">Filter</button>
-        {% if recordings %}
-            <a href="/download_all?start_date={{ start_date }}&end_date={{ end_date }}" 
-               download="recordings_{{ start_date }}_to_{{ end_date }}.zip">Download Filtered as ZIP</a>
-        {% endif %}
-    </form>
+    <div class="control-section">
+        <h2>Filter & Download ZIP</h2>
+        <form method="get" class="controls">
+            <label for="start_date">Start Date:</label>
+            <input type="date" id="start_date" name="start_date" value="{{ start_date }}">
+            <label for="end_date">End Date:</label>
+            <input type="date" id="end_date" name="end_date" value="{{ end_date }}">
+            <button type="submit">Filter List</button>
+            {% if recordings %}
+                <a href="/download_all?start_date={{ start_date }}&end_date={{ end_date }}"
+                   download="recordings_{{ start_date }}_to_{{ end_date }}.zip">Download Filtered as ZIP</a>
+            {% endif %}
+        </form>
+    </div>
+
+    <div class="control-section">
+        <h2>Download Combined Audio</h2>
+        <form id="combineForm" action="/download_combined" method="get" class="controls" target="_blank"> <!-- Open in new tab for download -->
+            <label for="combine_start_dt">Start DateTime:</label>
+            <input type="datetime-local" id="combine_start_dt" name="start_dt" required>
+            <label for="combine_end_dt">End DateTime:</label>
+            <input type="datetime-local" id="combine_end_dt" name="end_dt" required>
+            <button type="submit">Download Combined WAV</button>
+        </form>
+        <p style="font-size: 0.9em; color: #666;">Select a precise start and end time. The server will find all recordings fully or partially within this range, combine them in order, and offer the result as a single WAV file.</p>
+    </div>
 
     {% if recordings %}
+        <h2>Filtered Recordings List</h2>
         <table>
             <thead>
                 <tr>

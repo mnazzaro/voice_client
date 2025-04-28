@@ -4,7 +4,7 @@ import sys
 
 # Import the singleton service instances and settings
 from audio_input import audio_input_service
-from vad_processor import vad_processor_service
+from chunking_processor import chunking_processor_service
 from config import settings # Import the settings instance
 
 running = True
@@ -19,8 +19,7 @@ def main():
     global running
     print("Starting application...")
     # Access settings via the imported object
-    print(f"Configuration: Sample Rate={settings.SAMPLE_RATE}, Chunk={settings.CHUNK_DURATION_MS}ms, Output='{settings.OUTPUT_DIR}'")
-    print(f"VAD: Aggressiveness={settings.VAD_AGGRESSIVENESS}, Silence Threshold={settings.SILENCE_THRESHOLD_MS}ms, Pre-buffer={settings.PRE_BUFFER_DURATION_MS}ms")
+    print(f"Configuration: Sample Rate={settings.SAMPLE_RATE}, Chunk={settings.CHUNK_DURATION_MS}ms, Output='{settings.OUTPUT_DIR}', Save Chunk Minutes={settings.CHUNK_DURATION_MINUTES}")
 
     # Setup signal handler for graceful shutdown
     signal.signal(signal.SIGINT, signal_handler)
@@ -29,7 +28,7 @@ def main():
     try:
         # Start the services
         audio_input_service.start()
-        vad_processor_service.start()
+        chunking_processor_service.start()
 
         print(f"#{'='*30}")
         print(" Application running. Press Ctrl+C to stop.")
@@ -44,7 +43,7 @@ def main():
     finally:
         print("Initiating shutdown...")
         # Stop services in reverse order of dependency/start
-        vad_processor_service.stop()
+        chunking_processor_service.stop()
         audio_input_service.stop()
         print("Application shutdown complete.")
 

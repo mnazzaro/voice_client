@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import List, Optional
 import zipfile
 import io
+import wave
 
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse
@@ -102,6 +103,75 @@ def get_recordings(start_date: Optional[datetime.date] = None, end_date: Optiona
     recordings.sort(key=lambda r: r.start_dt, reverse=True)
     return recordings
 
+def get_recordings_in_range(start_dt: datetime.datetime, end_dt: datetime.datetime) -> List[RecordingInfo]:
+    """Gets list of recordings that overlap with the given datetime range."""
+    recordings = []
+    if not RECORDINGS_DIR.exists() or not RECORDINGS_DIR.is_dir():
+        print(f"Warning: Recordings directory not found: {RECORDINGS_DIR}")
+        return []
+
+    for item in RECORDINGS_DIR.iterdir():
+        if item.is_file() and item.suffix == '.wav':
+            info = parse_filename(item.name, item)
+            if info:
+                # Check for overlap: (StartA <= EndB) and (EndA >= StartB)
+                if info.start_dt <= end_dt and info.end_dt >= start_dt:
+                    recordings.append(info)
+
+    # Sort by start time, ASCENDING for concatenation
+    recordings.sort(key=lambda r: r.start_dt, reverse=False)
+    return recordings
+
+def combine_wav_files(file_list: List[Path]) -> Optional[io.BytesIO]:
+    """Combines multiple WAV files into a single WAV in memory."""
+    if not file_list:
+        return None
+
+    output_buffer = io.BytesIO()
+    first_file = True
+    params = None
+
+    try:
+        with wave.open(output_buffer, 'wb') as outfile:
+            for filepath in file_list:
+                if not filepath.exists():
+                    print(f"Warning: File not found during combination: {filepath}", file=sys.stderr)
+                    continue
+
+                with wave.open(str(filepath), 'rb') as infile:
+                    current_params = infile.getparams()
+                    if first_file:
+                        params = current_params
+                        outfile.setparams(params)
+                        first_file = False
+                    elif current_params != params:
+                        # Basic check: Ensure sample rate, channels, sample width match
+                        # More robust checks could be added
+                        print(f"Error: WAV file {filepath.name} has incompatible parameters.", file=sys.stderr)
+                        print(f"Expected: {params}", file=sys.stderr)
+                        print(f"Got: {current_params}", file=sys.stderr)
+                        # Raise an exception or return None to indicate failure
+                        # raise ValueError(f"Incompatible WAV parameters in {filepath.name}")
+                        return None # Skip incompatible files or abort?
+                        # For now, let's abort the combination if parameters don't match.
+
+                    # Read and write frame data
+                    frames = infile.readframes(infile.getnframes())
+                    outfile.writeframes(frames)
+
+    except wave.Error as e:
+        print(f"Error processing WAV files: {e}", file=sys.stderr)
+        return None
+    except Exception as e:
+        print(f"Unexpected error during WAV combination: {e}", file=sys.stderr)
+        return None
+
+    if first_file: # No files were actually processed
+        return None
+
+    output_buffer.seek(0)
+    return output_buffer
+
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request, start_date: Optional[str] = None, end_date: Optional[str] = None):
     """Serves the main UI page with recordings list."""
@@ -139,6 +209,48 @@ async def download_recording(filename: str):
         return FileResponse(file_path, media_type='audio/wav', filename=filename)
     else:
         raise HTTPException(status_code=404, detail="File not found")
+
+@app.get("/download_combined")
+async def download_combined_wav(start_dt: str, end_dt: str):
+    """Finds recordings in range, combines them, and streams the result."""
+    try:
+        # Parse the datetime-local strings (format like "YYYY-MM-DDTHH:MM")
+        start_datetime = datetime.datetime.fromisoformat(start_dt)
+        end_datetime = datetime.datetime.fromisoformat(end_dt)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid datetime format. Use ISO format (YYYY-MM-DDTHH:MM).")
+
+    if start_datetime >= end_datetime:
+        raise HTTPException(status_code=400, detail="Start datetime must be before end datetime.")
+
+    print(f"Requesting combined WAV from {start_datetime} to {end_datetime}")
+
+    # Find recordings overlapping the precise time range
+    recordings_to_combine = get_recordings_in_range(start_datetime, end_datetime)
+
+    if not recordings_to_combine:
+        raise HTTPException(status_code=404, detail="No recordings found overlapping the specified time range.")
+
+    print(f"Found {len(recordings_to_combine)} recordings to combine:")
+    for rec in recordings_to_combine:
+        print(f"  - {rec.filename}")
+
+    # Combine the WAV files
+    combined_wav_buffer = combine_wav_files([rec.filepath for rec in recordings_to_combine])
+
+    if combined_wav_buffer is None:
+        raise HTTPException(status_code=500, detail="Failed to combine WAV files. Check server logs for incompatible files or errors.")
+
+    # Create filename for the combined download
+    start_str = start_datetime.strftime('%Y%m%d_%H%M%S')
+    end_str = end_datetime.strftime('%Y%m%d_%H%M%S')
+    combined_filename = f"combined_recording_{start_str}_to_{end_str}.wav"
+
+    return StreamingResponse(
+        combined_wav_buffer,
+        media_type="audio/wav",
+        headers={"Content-Disposition": f"attachment; filename={combined_filename}"}
+    )
 
 @app.get("/download_all")
 async def download_all_recordings(start_date: Optional[str] = None, end_date: Optional[str] = None):
